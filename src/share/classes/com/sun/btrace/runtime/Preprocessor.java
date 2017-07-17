@@ -217,7 +217,7 @@ final class Preprocessor {
         makePublic(mn);
         checkAugmentedReturn(mn);
         scanMethodInstructions(cn, mn, lvg);
-        addBTraceErrorHandler(mn, lvg);
+      //  addBTraceErrorHandler(mn, lvg);
         addBTraceRuntimeEnter(cn, mn);
 
         recalculateVars(mn, lvg);
@@ -592,8 +592,8 @@ final class Preprocessor {
                     "enter", BTRACERT_ENTER_DESC,
                     false
                 ));
-                entryCheck.add(new JumpInsnNode(Opcodes.IFNE, start));
-                entryCheck.add(getReturnSequence(mn, false));
+//                entryCheck.add(new JumpInsnNode(Opcodes.IFNE, start));
+//                entryCheck.add(getReturnSequence(mn, false));
                 entryCheck.add(start);
             }
             mn.instructions.insert(entryCheck);

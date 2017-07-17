@@ -24,10 +24,16 @@
  */
 package com.sun.btrace.runtime;
 
+import java.io.*;
 import java.lang.annotation.Annotation;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+
 import com.sun.btrace.org.objectweb.asm.AnnotationVisitor;
 import com.sun.btrace.org.objectweb.asm.Attribute;
 import com.sun.btrace.org.objectweb.asm.ClassReader;
@@ -35,9 +41,13 @@ import com.sun.btrace.org.objectweb.asm.FieldVisitor;
 import com.sun.btrace.org.objectweb.asm.MethodVisitor;
 import com.sun.btrace.annotations.BTrace;
 import com.sun.btrace.util.PrefixMap;
+
 import java.lang.ref.Reference;
 import java.util.*;
 import java.util.regex.PatternSyntaxException;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 /**
  * This class checks whether a given target class
@@ -50,8 +60,10 @@ public class ClassFilter {
     private static final Class<?> REFERENCE_CLASS = Reference.class;
     private static final PrefixMap SENSITIVE_CLASSES = new PrefixMap();
 
+    private Gson gson = new GsonBuilder().create();
+
     private Set<String> sourceClasses;
-    private Pattern[] sourceClassPatterns;
+    private WeakHashMap<String, Object> sourceClassPatterns;
     private String[] annotationClasses;
     private Pattern[] annotationClassPatterns;
     // +foo type class pattern in any @OnMethod.
@@ -117,10 +129,8 @@ public class ClassFilter {
             return true;
         }
 
-        for (Pattern pat : sourceClassPatterns) {
-            if (pat.matcher(className).matches()) {
-                return true;
-            }
+        if (sourceClassPatterns.containsKey(className)) {
+            return true;
         }
 
         for (String st : superTypes) {
@@ -159,7 +169,7 @@ public class ClassFilter {
         final String targetName = cr.getClassName().replace('/', '.');
 
         outer:
-        for(OnMethod om : onMethods) {
+        for (OnMethod om : onMethods) {
             String probeClass = om.getClazz();
             if (probeClass == null || probeClass.isEmpty()) continue;
 
@@ -178,7 +188,7 @@ public class ClassFilter {
                 Collection<String> annoTypes = cr.getAnnotationTypes();
                 if (om.isClassRegexMatcher()) {
                     Pattern annoCheck = Pattern.compile(probeClass);
-                    for(String annoType : annoTypes) {
+                    for (String annoType : annoTypes) {
                         if (annoCheck.matcher(annoType).matches()) {
                             applicables.add(om);
                             continue outer;
@@ -203,15 +213,14 @@ public class ClassFilter {
     }
 
     public boolean isNameMatching(String clzName) {
-        if (sourceClasses.contains(clzName))  {
+        if (sourceClasses.contains(clzName)) {
             return true;
         }
 
-        for (Pattern pat : sourceClassPatterns) {
-            if (pat.matcher(clzName).matches()) {
-                return true;
-            }
+        if (sourceClassPatterns.containsKey(clzName)) {
+            return true;
         }
+
         return false;
     }
 
@@ -238,11 +247,12 @@ public class ClassFilter {
     /**
      * Return whether given Class <i>typeA</i> is subtype of any of the
      * given type names.
-     * @param typeA the type to check
+     *
+     * @param typeA  the type to check
      * @param loader the classloader for loading the type (my be null)
-     * @param types any requested supertypes
+     * @param types  any requested supertypes
      **/
-    public static boolean isSubTypeOf(String typeA, ClassLoader loader, String ... types) {
+    public static boolean isSubTypeOf(String typeA, ClassLoader loader, String... types) {
         if (typeA == null || typeA.equals(Constants.OBJECT_INTERNAL)) {
             return false;
         }
@@ -322,8 +332,31 @@ public class ClassFilter {
 
         sourceClasses = new HashSet(strSrcList.size());
         sourceClasses.addAll(strSrcList);
-        sourceClassPatterns = new Pattern[patSrcList.size()];
-        patSrcList.toArray(sourceClassPatterns);
+
+        String json = "";
+
+        try {
+            json = readFile("plugins.json", StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+        if (!json.isEmpty()) {
+            sourceClassPatterns = new WeakHashMap<>();
+            new ArrayList<String>(Arrays.asList(gson.fromJson(json, String[].class))).forEach(x -> sourceClassPatterns.put(x, null));
+        }
+
+//        try {
+//            BufferedWriter writer = new BufferedWriter(new FileWriter(new File("G:/Downloads/test.txt")));
+//            writer.write("FILTER FOUND: " + patSrcList.toString()
+//                    + "File: " + new File(".").toPath().toAbsolutePath().toString());
+//            writer.flush();
+//            writer.close();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+
         superTypes = new String[superTypesList.size()];
         superTypesList.toArray(superTypes);
         superTypesInternal = new String[superTypesInternalList.size()];
@@ -333,4 +366,11 @@ public class ClassFilter {
         annotationClassPatterns = new Pattern[patAnoList.size()];
         patAnoList.toArray(annotationClassPatterns);
     }
+
+    static String readFile(String path, Charset encoding)
+            throws IOException {
+        byte[] encoded = Files.readAllBytes(Paths.get(path));
+        return new String(encoded, encoding);
+    }
+
 }

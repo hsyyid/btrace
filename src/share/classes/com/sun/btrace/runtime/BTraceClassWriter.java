@@ -81,23 +81,23 @@ final class BTraceClassWriter extends ClassWriter {
         return hit ? this.toByteArray() : null;
     }
 
-    @Override
-    protected String getCommonSuperClass(String type1, String type2) {
-        // Using type closures resolved via the associate classloader
-        LinkedHashSet<String> type1Closure = new LinkedHashSet<>();
-        LinkedHashSet<String> type2Closure = new LinkedHashSet<>();
-        InstrumentUtils.collectHierarchyClosure(targetCL, type1, type1Closure, true);
-        InstrumentUtils.collectHierarchyClosure(targetCL, type2, type2Closure, true);
-        // basically, do intersection
-        type1Closure.retainAll(type2Closure);
-
-        // if the intersection is not empty the first element is the closest common ancestor
-        Iterator<String> iter = type1Closure.iterator();
-        if (iter.hasNext()) {
-            String common = iter.next();
-            return common;
-        }
-        return Constants.OBJECT_INTERNAL;
-    }
+//    @Override
+//    protected String getCommonSuperClass(String type1, String type2) {
+//        // Using type closures resolved via the associate classloader
+//        LinkedHashSet<String> type1Closure = new LinkedHashSet<>();
+//        LinkedHashSet<String> type2Closure = new LinkedHashSet<>();
+//        InstrumentUtils.collectHierarchyClosure(targetCL, type1, type1Closure, true);
+//        InstrumentUtils.collectHierarchyClosure(targetCL, type2, type2Closure, true);
+//        // basically, do intersection
+//        type1Closure.retainAll(type2Closure);
+//
+//        // if the intersection is not empty the first element is the closest common ancestor
+//        Iterator<String> iter = type1Closure.iterator();
+//        if (iter.hasNext()) {
+//            String common = iter.next();
+//            return common;
+//        }
+//        return Constants.OBJECT_INTERNAL;
+//    }
 
 }

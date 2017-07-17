@@ -25,13 +25,10 @@
 
 package traces.onmethod;
 
-import com.sun.btrace.annotations.BTrace;
-import com.sun.btrace.annotations.Kind;
-import com.sun.btrace.annotations.Location;
-import com.sun.btrace.annotations.OnMethod;
-import com.sun.btrace.annotations.Return;
-import com.sun.btrace.annotations.Self;
-import com.sun.btrace.annotations.Duration;
+import com.sun.btrace.BTraceUtils;
+import com.sun.btrace.Profiler;
+import com.sun.btrace.annotations.*;
+
 import static com.sun.btrace.BTraceUtils.*;
 
 /**
@@ -40,8 +37,25 @@ import static com.sun.btrace.BTraceUtils.*;
  */
 @BTrace
 public class ArgsDuration {
-    @OnMethod(clazz="/.*\\.OnMethodTest/", method="args", location=@Location(value=Kind.RETURN))
-    public static void args(@Self Object self, @Return long retVal, @Duration long dur, String a, long b, String[] c, int[] d) {
-        println("args");
+    @Property
+    static Profiler profiler = BTraceUtils.Profiling.newProfiler();
+
+    @OnMethod(clazz = "/^(?!sun|java).*$/", method = "/.*/")
+    public static void entry(@ProbeMethodName(fqn = true) String probeMethod)
+    {
+        BTraceUtils.Profiling.recordEntry(profiler, probeMethod);
+    }
+
+    @OnMethod(clazz = "/^(?!sun|java).*$/", method = "/.*/", location = @Location(value = Kind.RETURN))
+    public static void exit(@ProbeMethodName(fqn = true) String probeMethod, @Duration long duration)
+    {
+        BTraceUtils.Profiling.recordExit(profiler, probeMethod, duration);
+    }
+
+    @OnTimer(300000)
+    public static void timer()
+    {
+        BTraceUtils.println("Logging Time: " + BTraceUtils.Time.millis() + " " + BTraceUtils.timestamp());
+        BTraceUtils.Profiling.printSnapshot("Profiler Output:", profiler);
     }
 }

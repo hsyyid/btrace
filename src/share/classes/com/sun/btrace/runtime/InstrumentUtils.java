@@ -28,11 +28,14 @@ package com.sun.btrace.runtime;
 import com.sun.btrace.org.objectweb.asm.ClassReader;
 import com.sun.btrace.org.objectweb.asm.ClassVisitor;
 import com.sun.btrace.org.objectweb.asm.ClassWriter;
+
 import static com.sun.btrace.org.objectweb.asm.Opcodes.*;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.LinkedHashSet;
 import java.util.Set;
+
 import static com.sun.btrace.runtime.Constants.OBJECT_INTERNAL;
 
 /**
@@ -41,18 +44,19 @@ import static com.sun.btrace.runtime.Constants.OBJECT_INTERNAL;
  */
 public final class InstrumentUtils {
     /**
-    * Collects the type hierarchy into the provided list, sorted from the actual type to root.
-    * Common superclasses may be present multiple times (eg. {@code java.lang.Object})
-    * It will use the associated classloader to locate the class file resources.
-    * @param cl the associated classloader
-    * @param type the type to compute the hierarchy closure for (either Java or internal name format)
-    * @param closure the ordered set to store the closure in
-    * @param useInternal should internal types names be used in the closure
-    */
+     * Collects the type hierarchy into the provided list, sorted from the actual type to root.
+     * Common superclasses may be present multiple times (eg. {@code java.lang.Object})
+     * It will use the associated classloader to locate the class file resources.
+     *
+     * @param cl          the associated classloader
+     * @param type        the type to compute the hierarchy closure for (either Java or internal name format)
+     * @param closure     the ordered set to store the closure in
+     * @param useInternal should internal types names be used in the closure
+     */
     public static void collectHierarchyClosure(ClassLoader cl, String type,
                                                Set<String> closure, boolean useInternal) {
         if (type == null || type.equals(OBJECT_INTERNAL)) {
-           return;
+            return;
         }
         ClassInfo ci = ClassCache.getInstance().get(cl, type);
 
@@ -60,7 +64,7 @@ public final class InstrumentUtils {
 
         // add self
         ciSet.add(ci);
-        for(ClassInfo sci : ci.getSupertypes(false)) {
+        for (ClassInfo sci : ci.getSupertypes(false)) {
             if (!sci.isInterface() && !sci.getClassName().equals(OBJECT_INTERNAL)) {
                 ciSet.add(sci);
             }
@@ -124,7 +128,7 @@ public final class InstrumentUtils {
         // skip 0xCAFEBABE magic and minor version
         final int majorOffset = 4 + 2;
         return (((code[majorOffset] << 8) & 0xFF00) |
-               ((code[majorOffset + 1]) & 0xFF));
+                ((code[majorOffset + 1]) & 0xFF));
     }
 
     public static ClassWriter newClassWriter() {
@@ -145,13 +149,14 @@ public final class InstrumentUtils {
         if (isJDK16OrAbove(cr)) {
             flags = ClassWriter.COMPUTE_FRAMES;
         }
+
         return newClassWriter(cr, flags);
     }
 
     static BTraceClassWriter newClassWriter(BTraceClassReader reader, int flags) {
         BTraceClassWriter cw = null;
         cw = reader != null ? new BTraceClassWriter(reader.getClassLoader(), reader, flags) :
-                              new BTraceClassWriter(null, flags);
+                new BTraceClassWriter(null, flags);
 
         return cw;
     }
@@ -165,12 +170,12 @@ public final class InstrumentUtils {
     }
 
     static BTraceClassReader newClassReader(InputStream is)
-    throws IOException{
+            throws IOException {
         return new BTraceClassReader(ClassLoader.getSystemClassLoader(), is);
     }
 
     static BTraceClassReader newClassReader(ClassLoader cl, InputStream is)
-    throws IOException{
+            throws IOException {
         return new BTraceClassReader(cl, is);
     }
 

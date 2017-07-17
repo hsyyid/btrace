@@ -39,10 +39,7 @@ import org.objectweb.asm.util.CheckClassAdapter;
 import org.objectweb.asm.util.TraceClassVisitor;
 import sun.misc.Unsafe;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -185,17 +182,23 @@ public abstract class InstrumentorTestBase {
         transform(traceName, false);
     }
 
+    // NOTE: Only for testing
     protected void transform(String traceName, boolean unsafe) throws IOException {
         settings.setTrusted(unsafe);
         BTraceClassReader cr = InstrumentUtils.newClassReader(cl, originalBC);
         BTraceClassWriter cw = InstrumentUtils.newClassWriter(cr);
-        BTraceProbe btrace = loadTrace(traceName, unsafe);
+        System.out.println("Got stuffs: " +cw.toByteArray());
 
+        BTraceProbe btrace = loadTrace(traceName, unsafe); // Load the trace ORIGINAL version...
+
+        // Add instrumentor to list
         cw.addInstrumentor(btrace);
 
+        // Modify class
         transformedBC = cw.instrument();
 
         if (transformedBC != null) {
+            // Load class using Sun's UNSAFE
             load();
         } else {
             System.err.println("Unable to instrument class " + cr.getJavaClassName());
@@ -226,6 +229,16 @@ public abstract class InstrumentorTestBase {
     private String diff() throws IOException {
         String origCode = asmify(originalBC);
         String transCode = asmify(transformedBC);
+
+//        // TODO: Debug Code
+//        FileOutputStream out = new FileOutputStream(new File("/tmp/originalbc.class"));
+//        out.write(originalBC);
+//        out.close();
+//
+//        out = new FileOutputStream(new File("/tmp/transformedbc.class"));
+//        out.write(transformedBC);
+//        out.close();
+
         return diff(transCode, origCode);
     }
 
@@ -290,6 +303,9 @@ public abstract class InstrumentorTestBase {
         }
         BTraceProbe bcn = factory.createProbe(originalTrace);
 //        Trace t =  new Trace(bcn.getBytecode(), bcn.getOnMethods(), verifier.getReachableCalls(), bcn.name);
+
+        System.out.println("BCN: " + bcn);
+
         transformedTrace = extractBytecode(bcn);
         if (DEBUG) {
 //            writer = InstrumentUtils.newClassWriter();
@@ -303,10 +319,15 @@ public abstract class InstrumentorTestBase {
 
     protected byte[] loadTargetClass(String name) throws IOException {
         originalBC = loadFile("resources/" + name + ".class");
+        System.out.println("LOADED: " + originalBC);
         return originalBC;
     }
 
     private byte[] loadFile(String path) throws IOException {
+
+//        FileInputStream input = new FileInputStream(new File("/tmp/WrapperCommandSource.class"));
+//        return loadFile(input);
+
         InputStream is = ClassLoader.getSystemResourceAsStream(path);
         try {
             return loadFile(is);
@@ -334,6 +355,7 @@ public abstract class InstrumentorTestBase {
         return result;
     }
 
+    // Extracts the ORIGINAL Code from the Btrace Script Class(es)
     private byte[] extractBytecode(BTraceProbe bp) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         bp.accept(cw);

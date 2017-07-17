@@ -26,6 +26,7 @@ package com.sun.btrace.runtime;
 
 import com.sun.btrace.BTraceRuntime;
 import com.sun.btrace.DebugSupport;
+
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
@@ -43,14 +44,15 @@ import java.util.regex.Pattern;
  * the registered probes is able to instrument the class it will not be transformed.
  * </p>
  *
- * @since 1.3.5
  * @author Jaroslav Bachorik
+ * @since 1.3.5
  */
 public final class BTraceTransformer implements ClassFileTransformer {
     static class Filter {
         static enum Result {
             TRUE, FALSE, MAYBE
         }
+
         private boolean isFast = true;
         private boolean isRegex = false;
 
@@ -86,7 +88,7 @@ public final class BTraceTransformer implements ClassFileTransformer {
         }
 
         private static <K> void addToMap(Map<K, Integer> map, K name) {
-            synchronized(map) {
+            synchronized (map) {
                 Integer i = map.get(name);
                 if (i == null) {
                     map.put(name, 1);
@@ -97,7 +99,7 @@ public final class BTraceTransformer implements ClassFileTransformer {
         }
 
         private static <K> void removeFromMap(Map<K, Integer> map, K name) {
-            synchronized(map) {
+            synchronized (map) {
                 Integer i = map.get(name);
                 if (i == null) {
                     return;
@@ -111,14 +113,14 @@ public final class BTraceTransformer implements ClassFileTransformer {
 
         public Result matchClass(String className) {
             if (isFast) {
-                synchronized(nameMap) {
+                synchronized (nameMap) {
                     if (nameMap.containsKey(className)) {
                         return Result.TRUE;
                     }
                 }
                 if (isRegex) {
-                    synchronized(nameRegexMap) {
-                        for(Pattern p : nameRegexMap.keySet()) {
+                    synchronized (nameRegexMap) {
+                        for (Pattern p : nameRegexMap.keySet()) {
                             if (p.matcher(className).matches()) {
                                 return Result.TRUE;
                             }
@@ -130,6 +132,7 @@ public final class BTraceTransformer implements ClassFileTransformer {
             return Result.MAYBE;
         }
     }
+
     private final DebugSupport debug;
     private final Collection<BTraceProbe> probes = new LinkedList<>();
     private final Filter filter = new Filter();
@@ -140,14 +143,14 @@ public final class BTraceTransformer implements ClassFileTransformer {
 
     public final synchronized void register(BTraceProbe p) {
         probes.add(p);
-        for(OnMethod om : p.onmethods()) {
+        for (OnMethod om : p.onmethods()) {
             filter.add(om);
         }
     }
 
     public final synchronized void unregister(BTraceProbe p) {
         probes.remove(p);
-        for(OnMethod om : p.onmethods()) {
+        for (OnMethod om : p.onmethods()) {
             filter.remove(om);
         }
     }
@@ -175,10 +178,16 @@ public final class BTraceTransformer implements ClassFileTransformer {
         try {
             BTraceClassReader cr = InstrumentUtils.newClassReader(loader, classfileBuffer);
             BTraceClassWriter cw = InstrumentUtils.newClassWriter(cr);
-            for(BTraceProbe p : probes) {
+            for (BTraceProbe p : probes) {
                 p.notifyTransform(className);
                 cw.addInstrumentor(p);
             }
+
+            if (debug.isDumpClasses()) {
+                debug.dumpClass(className.replace('.', '/') + "_orig", cw.toByteArray());
+            }
+
+
             byte[] transformed = cw.instrument();
             if (transformed == null) {
                 // no instrumentation necessary
