@@ -19,6 +19,8 @@ plugins {
     id "jacoco"
 }
 
+apply plugin: 'idea'
+
 def currentJvm = org.gradle.internal.jvm.Jvm.current()
 
 // don't enable errorprone for JDK 7 - it does not work

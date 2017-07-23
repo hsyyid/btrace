@@ -46,7 +46,7 @@ final public class SharedSettings {
 
     public static final SharedSettings GLOBAL = new SharedSettings();
 
-    private boolean debug = true;
+    private boolean debug = false;
     private boolean trusted = false;
     private boolean trackRetransforms = false;
     private boolean retransformStartup = true;

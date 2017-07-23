@@ -125,16 +125,22 @@ public class ClassFilter {
         }
 
         String className = target.getName();
+        System.out.println("Class NAME " + className);
+
         if (isNameMatching(className)) {
+            System.out.println("RETURNED TRUE");
             return true;
         }
 
+
         if (sourceClassPatterns.containsKey(className)) {
+            System.out.println("RETURNED TRUE");
             return true;
         }
 
         for (String st : superTypes) {
             if (isSubTypeOf(target, st)) {
+                System.out.println("RETURNED TRUE");
                 return true;
             }
         }
@@ -148,6 +154,7 @@ public class ClassFilter {
         for (String name : annotationClasses) {
             for (String annoType : annoTypes) {
                 if (name.equals(annoType)) {
+                    System.out.println("RETURNED TRUE");
                     return true;
                 }
             }
@@ -156,6 +163,7 @@ public class ClassFilter {
         for (Pattern pat : annotationClassPatterns) {
             for (String annoType : annoTypes) {
                 if (pat.matcher(annoType).matches()) {
+                    System.out.println("RETURNED TRUE");
                     return true;
                 }
             }
@@ -342,9 +350,17 @@ public class ClassFilter {
         }
 
 
+        for (Pattern pat : patSrcList) {
+            System.out.println(pat.toString());
+        }
+
         if (!json.isEmpty()) {
             sourceClassPatterns = new WeakHashMap<>();
             new ArrayList<String>(Arrays.asList(gson.fromJson(json, String[].class))).forEach(x -> sourceClassPatterns.put(x, null));
+            System.out.println("MONITORING CLASSES...");
+            sourceClassPatterns.forEach((x,y) -> System.out.println(x));
+        } else {
+            System.out.println("JSON WAS EMPTY!");
         }
 
 //        try {
