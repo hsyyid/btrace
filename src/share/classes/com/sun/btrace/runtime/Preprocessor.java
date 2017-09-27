@@ -27,7 +27,9 @@ package com.sun.btrace.runtime;
 
 import com.sun.btrace.BTraceRuntime;
 import com.sun.btrace.annotations.Return;
+
 import static com.sun.btrace.runtime.Constants.*;
+
 import com.sun.btrace.org.objectweb.asm.Opcodes;
 import com.sun.btrace.org.objectweb.asm.Type;
 import com.sun.btrace.org.objectweb.asm.tree.AbstractInsnNode;
@@ -45,6 +47,7 @@ import com.sun.btrace.org.objectweb.asm.tree.MethodNode;
 import com.sun.btrace.org.objectweb.asm.tree.TryCatchBlockNode;
 import com.sun.btrace.org.objectweb.asm.tree.TypeInsnNode;
 import com.sun.btrace.org.objectweb.asm.tree.VarInsnNode;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -59,29 +62,28 @@ import java.util.Set;
  * This class preprocesses a compiled BTrace program.
  * This is done after BTrace safety verification but
  * before instrumenting the probed classes.
- *
+ * <p>
  * Transformations done here:
- *
- *    1. add <clinit> method, if one not found
- *    2. replace @Export fields by perf counters
- *       and replace put/get by perf counter update/read
- *    3. replace @TLS fields by ThreadLocal fields
- *       and replace put/get by ThreadLocal set/get
- *    4. In <clinit> method, add ThreadLocal creation
- *       and perf counter creation calls (for @Export and
- *       @TLS fields respectively)
- *    5. Add a field to store BTraceRuntime object and
- *       initialize the same in <clinit> method
- *    6. add prolog and epilogue in each BTrace action method
- *       to insert BTraceRuntime.enter/leave and also to call
- *       BTraceRuntime.handleException on exception catch
- *    7. initialize and reference any service instances
- *    8. add a field to store client's BTraceRuntime instance
- *    9. make all fields publicly accessible
- *
+ * <p>
+ * 1. add <clinit> method, if one not found
+ * 2. replace @Export fields by perf counters
+ * and replace put/get by perf counter update/read
+ * 3. replace @TLS fields by ThreadLocal fields
+ * and replace put/get by ThreadLocal set/get
+ * 4. In <clinit> method, add ThreadLocal creation
+ * and perf counter creation calls (for @Export and
  *
  * @author A. Sundararajan
  * @author J. Bachorik (Tree API rewrite)
+ * @TLS fields respectively)
+ * 5. Add a field to store BTraceRuntime object and
+ * initialize the same in <clinit> method
+ * 6. add prolog and epilogue in each BTrace action method
+ * to insert BTraceRuntime.enter/leave and also to call
+ * BTraceRuntime.handleException on exception catch
+ * 7. initialize and reference any service instances
+ * 8. add a field to store client's BTraceRuntime instance
+ * 9. make all fields publicly accessible
  */
 final class Preprocessor {
     private static enum MethodClassifier {
@@ -108,7 +110,7 @@ final class Preprocessor {
 
         public LocalVarGenerator(MethodNode mn) {
             Type[] args = Type.getArgumentTypes(mn.desc);
-            for(Type t : args) {
+            for (Type t : args) {
                 offset += t.getSize();
             }
         }
@@ -126,6 +128,7 @@ final class Preprocessor {
             return idx;
         }
     }
+
     private static final String ANNOTATIONS_PREFIX = "com/sun/btrace/annotations/";
 
     private static final Type TLS_TYPE = Type.getType("L" + ANNOTATIONS_PREFIX + "TLS;");
@@ -192,7 +195,7 @@ final class Preprocessor {
         processClinit(cn);
         processFields(cn);
 
-        for(MethodNode mn : getMethods(cn)) {
+        for (MethodNode mn : getMethods(cn)) {
             preprocessMethod(cn, mn);
         }
     }
@@ -202,12 +205,12 @@ final class Preprocessor {
             cn.fields = new LinkedList();
         }
         cn.fields.add(new FieldNode(
-                Opcodes.ASM5,
-                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_VOLATILE, BTRACE_LEVEL_FLD,
-                INT_DESC,
-                null,
-                0
-            )
+                        Opcodes.ASM5,
+                        Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_VOLATILE, BTRACE_LEVEL_FLD,
+                        INT_DESC,
+                        null,
+                        0
+                )
         );
     }
 
@@ -217,7 +220,7 @@ final class Preprocessor {
         makePublic(mn);
         checkAugmentedReturn(mn);
         scanMethodInstructions(cn, mn, lvg);
-      //  addBTraceErrorHandler(mn, lvg);
+        addBTraceErrorHandler(mn, lvg);
         addBTraceRuntimeEnter(cn, mn);
 
         recalculateVars(mn, lvg);
@@ -237,8 +240,8 @@ final class Preprocessor {
         while (iter.hasNext()) {
             FieldNode fn = iter.next();
             fn.access = fn.access &
-                            ~(Opcodes.ACC_PRIVATE | Opcodes.ACC_PROTECTED)
-                            | Opcodes.ACC_PUBLIC;
+                    ~(Opcodes.ACC_PRIVATE | Opcodes.ACC_PROTECTED)
+                    | Opcodes.ACC_PUBLIC;
             tryProcessTLS(cn, fn);
             tryProcessExport(cn, fn);
             if (tryProcessInjected(fn) == null) {
@@ -255,7 +258,7 @@ final class Preprocessor {
             String boxedDesc = boxDesc(origDesc);
             fn.desc = THREAD_LOCAL_DESC;
             fn.signature = fn.desc.substring(0, fn.desc.length() - 1) +
-                           "<" + boxedDesc + ">;";
+                    "<" + boxedDesc + ">;";
             initTLS(cn, fn, origDesc);
         }
     }
@@ -291,13 +294,13 @@ final class Preprocessor {
     private InsnList tlsInitSequence(ClassNode cn, String name, String desc) {
         InsnList initList = new InsnList();
         initList.add(
-            new MethodInsnNode(
-                Opcodes.INVOKESTATIC,
-                BTRACERT_INTERNAL,
-                "newThreadLocal",
-                NEW_TLS_DESC,
-                false
-            )
+                new MethodInsnNode(
+                        Opcodes.INVOKESTATIC,
+                        BTRACERT_INTERNAL,
+                        "newThreadLocal",
+                        NEW_TLS_DESC,
+                        false
+                )
         );
         initList.add(new FieldInsnNode(Opcodes.PUTSTATIC, cn.name, name, desc));
         return initList;
@@ -314,12 +317,12 @@ final class Preprocessor {
         init.add(new LdcInsnNode(perfCounterName(cn, name)));
         init.add(new LdcInsnNode(desc));
         init.add(new MethodInsnNode(
-                Opcodes.INVOKESTATIC,
-                BTRACERT_INTERNAL,
-                "newPerfCounter",
-                NEW_PERFCOUNTER_DESC,
-                false
-            )
+                        Opcodes.INVOKESTATIC,
+                        BTRACERT_INTERNAL,
+                        "newPerfCounter",
+                        NEW_PERFCOUNTER_DESC,
+                        false
+                )
         );
 
         return init;
@@ -365,29 +368,29 @@ final class Preprocessor {
 
     private void addDefaultVal(Type t, InsnList l) {
         switch (t.getSort()) {
-           case Type.INT:
-           case Type.SHORT:
-           case Type.BOOLEAN:
-           case Type.BYTE:
-           case Type.CHAR: {
-               l.insert(new InsnNode(Opcodes.ICONST_0));
-               break;
-           }
-           case Type.LONG: {
-               l.insert(new InsnNode(Opcodes.LCONST_0));
-               break;
-           }
-           case Type.FLOAT: {
-               l.insert(new InsnNode(Opcodes.FCONST_0));
-               break;
-           }
-           case Type.DOUBLE: {
-               l.insert(new InsnNode(Opcodes.DCONST_0));
-               break;
-           }
-           default: {
-               l.insert(new InsnNode(Opcodes.ACONST_NULL));
-           }
+            case Type.INT:
+            case Type.SHORT:
+            case Type.BOOLEAN:
+            case Type.BYTE:
+            case Type.CHAR: {
+                l.insert(new InsnNode(Opcodes.ICONST_0));
+                break;
+            }
+            case Type.LONG: {
+                l.insert(new InsnNode(Opcodes.LCONST_0));
+                break;
+            }
+            case Type.FLOAT: {
+                l.insert(new InsnNode(Opcodes.FCONST_0));
+                break;
+            }
+            case Type.DOUBLE: {
+                l.insert(new InsnNode(Opcodes.DCONST_0));
+                break;
+            }
+            default: {
+                l.insert(new InsnNode(Opcodes.ACONST_NULL));
+            }
         }
     }
 
@@ -407,13 +410,13 @@ final class Preprocessor {
                 AnnotationNode an = new AnnotationNode(Type.getDescriptor(Return.class));
                 annots.add(an);
                 mn.visibleParameterAnnotations = mn.visibleParameterAnnotations != null ?
-                                                    Arrays.copyOf(mn.visibleParameterAnnotations, args.length) :
-                                                    new List[args.length];
+                        Arrays.copyOf(mn.visibleParameterAnnotations, args.length) :
+                        new List[args.length];
                 mn.visibleParameterAnnotations[args.length - 1] = annots;
                 mn.desc = Type.getMethodDescriptor(retType, args);
 
                 if (mn instanceof BTraceMethodNode) {
-                    BTraceMethodNode bmn = (BTraceMethodNode)mn;
+                    BTraceMethodNode bmn = (BTraceMethodNode) mn;
                     OnMethod om = bmn.getOnMethod();
 
                     if (om != null && om.getTargetName().equals(mn.name) && om.getTargetDescriptor().equals(oldDesc)) {
@@ -432,8 +435,8 @@ final class Preprocessor {
         serviceLocals.clear(); // initialize the service locals for this particular method
 
         boolean checkFields = !(tlsFldNames.isEmpty() &&
-                                exportFldNames.isEmpty() &&
-                                injectedFlds.isEmpty());
+                exportFldNames.isEmpty() &&
+                injectedFlds.isEmpty());
 
         MethodClassifier clsf = getClassifier(mn);
 
@@ -442,10 +445,10 @@ final class Preprocessor {
         for (AbstractInsnNode n = l.getFirst(); n != null; n = n != null ? n.getNext() : null) {
             int type = n.getType();
             if (checkFields && type == AbstractInsnNode.FIELD_INSN) {
-                FieldInsnNode fin = (FieldInsnNode)n;
+                FieldInsnNode fin = (FieldInsnNode) n;
                 if (fin.owner.equals(cn.name)) {
                     if (tlsFldNames.contains(fin.name) &&
-                        !fin.desc.equals(THREAD_LOCAL_DESC)) {
+                            !fin.desc.equals(THREAD_LOCAL_DESC)) {
                         n = updateTLSUsage(fin, l);
                     } else if (exportFldNames.contains(fin.name)) {
                         n = updateExportUsage(cn, fin, l);
@@ -454,25 +457,25 @@ final class Preprocessor {
                     }
                 }
             } else if (type == AbstractInsnNode.METHOD_INSN) {
-                MethodInsnNode min = (MethodInsnNode)n;
+                MethodInsnNode min = (MethodInsnNode) n;
                 n = unfoldServiceInstantiation(cn, min, l);
             } else if (n.getOpcode() == retopcode && isClassified(clsf, MethodClassifier.RT_AWARE)) {
-                addBTraceRuntimeExit((InsnNode)n, l, lvg);
+                addBTraceRuntimeExit((InsnNode) n, l, lvg);
             }
         }
     }
 
     private void recalculateVars(MethodNode mn, LocalVarGenerator lvg) {
-        for(AbstractInsnNode n = mn.instructions.getFirst(); n != null; n = n.getNext()) {
+        for (AbstractInsnNode n = mn.instructions.getFirst(); n != null; n = n.getNext()) {
             if (n.getType() == AbstractInsnNode.VAR_INSN) {
-                VarInsnNode vin = (VarInsnNode)n;
+                VarInsnNode vin = (VarInsnNode) n;
                 vin.var = LocalVarGenerator.translateIdx(vin.var);
             }
         }
     }
 
     private void processClinit(ClassNode cn) {
-        for(MethodNode mn : getMethods(cn)) {
+        for (MethodNode mn : getMethods(cn)) {
             if (mn.name.equals("<clinit>")) {
                 clinit = mn;
                 break;
@@ -480,8 +483,8 @@ final class Preprocessor {
         }
         if (clinit == null) {
             clinit = new MethodNode(
-                Opcodes.ASM5, (Opcodes.ACC_STATIC | Opcodes.ACC_PUBLIC),
-                "<clinit>", "()V", null, new String[0]
+                    Opcodes.ASM5, (Opcodes.ACC_STATIC | Opcodes.ACC_PUBLIC),
+                    "<clinit>", "()V", null, new String[0]
             );
             clinit.instructions.add(new InsnNode(Opcodes.RETURN));
             cn.methods.add(0, clinit);
@@ -494,20 +497,20 @@ final class Preprocessor {
         InsnList l = new InsnList();
         l.add(new LdcInsnNode(Type.getObjectType(cn.name)));
         l.add(new MethodInsnNode(
-            Opcodes.INVOKESTATIC,
-            BTRACERT_INTERNAL,
-            "forClass",
-            BTRACERT_FOR_CLASS_DESC,
-            false)
+                Opcodes.INVOKESTATIC,
+                BTRACERT_INTERNAL,
+                "forClass",
+                BTRACERT_FOR_CLASS_DESC,
+                false)
         );
         l.add(new FieldInsnNode(Opcodes.PUTSTATIC, cn.name, rtField.name, rtField.desc));
 
         LabelNode start = new LabelNode();
         l.add(getRuntime(cn));
         l.add(new MethodInsnNode(
-            Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
-            "enter", BTRACERT_ENTER_DESC,
-            false
+                Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
+                "enter", BTRACERT_ENTER_DESC,
+                false
         ));
         l.add(new JumpInsnNode(Opcodes.IFNE, start));
         l.add(getReturnSequence(clinit, true));
@@ -523,15 +526,15 @@ final class Preprocessor {
             if (n.getOpcode() == Opcodes.RETURN) {
                 AbstractInsnNode prev = n.getPrevious();
                 if (prev != null && prev.getType() == AbstractInsnNode.METHOD_INSN) {
-                    MethodInsnNode min = (MethodInsnNode)prev;
+                    MethodInsnNode min = (MethodInsnNode) prev;
                     if (min.name.equals("leave")) {
                         // don't start the runtime if we are bailing out (BTraceRuntime.leave())
                         continue;
                     }
                 }
                 clinit1.instructions.insertBefore(n, new MethodInsnNode(
-                    Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
-                    "start", "()V", false
+                        Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
+                        "start", "()V", false
                 ));
             }
         }
@@ -543,16 +546,16 @@ final class Preprocessor {
 
     private MethodInsnNode getRuntimeExit() {
         return new MethodInsnNode(
-            Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
-            "leave", "()V", false
+                Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
+                "leave", "()V", false
         );
     }
 
     private void addRuntimeNode(ClassNode cn) {
         rtField = new FieldNode(
-            Opcodes.ASM5, (Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC),
-            "runtime", Type.getDescriptor(BTraceRuntime.class),
-            null, null
+                Opcodes.ASM5, (Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC),
+                "runtime", Type.getDescriptor(BTraceRuntime.class),
+                null, null
         );
         cn.fields.add(0, rtField);
     }
@@ -568,9 +571,9 @@ final class Preprocessor {
             l.insert(from);
             l.add(to);
             l.add(new MethodInsnNode(
-                Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
-                "handleException", BTRACERT_HANDLE_EXCEPTION_DESC,
-                false
+                    Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
+                    "handleException", BTRACERT_HANDLE_EXCEPTION_DESC,
+                    false
             ));
             l.add(getReturnSequence(mn, true));
             mn.tryCatchBlocks.add(new TryCatchBlockNode(from, to, to, THROWABLE_INTERNAL));
@@ -588,12 +591,12 @@ final class Preprocessor {
             if (isClassified(clsf, MethodClassifier.GUARDED)) {
                 LabelNode start = new LabelNode();
                 entryCheck.add(new MethodInsnNode(
-                    Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
-                    "enter", BTRACERT_ENTER_DESC,
-                    false
+                        Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
+                        "enter", BTRACERT_ENTER_DESC,
+                        false
                 ));
-//                entryCheck.add(new JumpInsnNode(Opcodes.IFNE, start));
-//                entryCheck.add(getReturnSequence(mn, false));
+                entryCheck.add(new JumpInsnNode(Opcodes.IFNE, start));
+                entryCheck.add(getReturnSequence(mn, false));
                 entryCheck.add(start);
             }
             mn.instructions.insert(entryCheck);
@@ -605,25 +608,25 @@ final class Preprocessor {
     }
 
     private List<MethodNode> getMethods(ClassNode cn) {
-        return (List<MethodNode>)cn.methods;
+        return (List<MethodNode>) cn.methods;
     }
 
     private List<FieldNode> getFields(ClassNode cn) {
-        return (List<FieldNode>)cn.fields;
+        return (List<FieldNode>) cn.fields;
     }
 
     public static AnnotationNode getAnnotation(FieldNode fn, Type annotation) {
         if (fn == null || (fn.visibleAnnotations == null && fn.invisibleAnnotations == null)) return null;
         String targetDesc = annotation.getDescriptor();
         if (fn.visibleAnnotations != null) {
-            for(AnnotationNode an : ((List<AnnotationNode>)fn.visibleAnnotations)) {
+            for (AnnotationNode an : ((List<AnnotationNode>) fn.visibleAnnotations)) {
                 if (an.desc.equals(targetDesc)) {
                     return an;
                 }
             }
         }
         if (fn.invisibleAnnotations != null) {
-            for(AnnotationNode an : ((List<AnnotationNode>)fn.invisibleAnnotations)) {
+            for (AnnotationNode an : ((List<AnnotationNode>) fn.invisibleAnnotations)) {
                 if (an.desc.equals(targetDesc)) {
                     return an;
                 }
@@ -635,7 +638,7 @@ final class Preprocessor {
     public static AnnotationNode getAnnotation(MethodNode fn, Type annotation) {
         if (fn == null || fn.visibleAnnotations == null) return null;
         String targetDesc = annotation.getDescriptor();
-        for(AnnotationNode an : ((List<AnnotationNode>)fn.visibleAnnotations)) {
+        for (AnnotationNode an : ((List<AnnotationNode>) fn.visibleAnnotations)) {
             if (an.desc.equals(targetDesc)) {
                 return an;
             }
@@ -644,9 +647,9 @@ final class Preprocessor {
     }
 
     private List<AnnotationNode> getAnnotations(MethodNode mn) {
-        return (List<AnnotationNode>)mn.visibleAnnotations != null ?
-                                        mn.visibleAnnotations :
-                                        Collections.emptyList();
+        return (List<AnnotationNode>) mn.visibleAnnotations != null ?
+                mn.visibleAnnotations :
+                Collections.emptyList();
     }
 
     private MethodClassifier getClassifier(MethodNode mn) {
@@ -655,7 +658,7 @@ final class Preprocessor {
 
         List<AnnotationNode> annots = getAnnotations(mn);
         if (!annots.isEmpty()) {
-            for(AnnotationNode an : annots) {
+            for (AnnotationNode an : annots) {
                 if (RT_AWARE_ANNOTS.contains(an.desc)) {
                     if (GUARDED_ANNOTS.contains(an.desc)) {
                         return MethodClassifier.GUARDED;
@@ -671,9 +674,9 @@ final class Preprocessor {
     private FieldInsnNode findNodeInitialization(FieldNode fn) {
         for (AbstractInsnNode n = clinit.instructions.getFirst(); n != null; n = n.getNext()) {
             if (n.getType() == AbstractInsnNode.FIELD_INSN) {
-                FieldInsnNode fldInsnNode = (FieldInsnNode)n;
+                FieldInsnNode fldInsnNode = (FieldInsnNode) n;
                 if (fldInsnNode.getOpcode() == Opcodes.PUTSTATIC &&
-                    fldInsnNode.name.equals(fn.name)) {
+                        fldInsnNode.name.equals(fn.name)) {
                     return fldInsnNode;
                 }
             }
@@ -684,10 +687,10 @@ final class Preprocessor {
     private MethodInsnNode findBTraceRuntimeStart() {
         for (AbstractInsnNode n = clinit.instructions.getFirst(); n != null; n = n.getNext()) {
             if (n.getType() == AbstractInsnNode.METHOD_INSN) {
-                MethodInsnNode min = (MethodInsnNode)n;
+                MethodInsnNode min = (MethodInsnNode) n;
                 if (min.getOpcode() == Opcodes.INVOKESTATIC &&
-                    min.owner.equals(BTRACERT_INTERNAL) &&
-                    min.name.equals("start")) {
+                        min.owner.equals(BTRACERT_INTERNAL) &&
+                        min.name.equals("start")) {
                     return min;
                 }
             }
@@ -708,10 +711,10 @@ final class Preprocessor {
         if (opcode == Opcodes.GETSTATIC) {
             InsnList toInsert = new InsnList();
             MethodInsnNode getNode = new MethodInsnNode(
-                Opcodes.INVOKEVIRTUAL,
-                THREAD_LOCAL_INTERNAL,
-                "get", TLS_GET_DESC,
-                false
+                    Opcodes.INVOKEVIRTUAL,
+                    THREAD_LOCAL_INTERNAL,
+                    "get", TLS_GET_DESC,
+                    false
             );
             toInsert.add(getNode);
             String boxedInternal = boxedDesc.substring(1, boxedDesc.length() - 1);
@@ -732,10 +735,10 @@ final class Preprocessor {
                 l.insert(fin.getPrevious(), boxNode);
             }
             MethodInsnNode setNode = new MethodInsnNode(
-                Opcodes.INVOKEVIRTUAL,
-                THREAD_LOCAL_INTERNAL,
-                "set", TLS_SET_DESC,
-                false
+                    Opcodes.INVOKEVIRTUAL,
+                    THREAD_LOCAL_INTERNAL,
+                    "set", TLS_SET_DESC,
+                    false
             );
             l.insert(fin, setNode);
             /* The stack is
@@ -808,15 +811,15 @@ final class Preprocessor {
             // just put null on the stack for GETSTATIC
             // and remove the topmost item from the stack for PUTSTATIC
             l.insert(fin, isPut ? new InsnNode(Opcodes.POP) :
-                                  new InsnNode(Opcodes.ACONST_NULL));
+                    new InsnNode(Opcodes.ACONST_NULL));
         } else {
             InsnList toInsert = new InsnList();
             toInsert.add(new LdcInsnNode(perfCounterName(cn, fin.name)));
             toInsert.add(new MethodInsnNode(
-                Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
-                methodName, isPut ? Type.getMethodDescriptor(Type.VOID_TYPE, tType, STRING_TYPE) :
-                                    Type.getMethodDescriptor(tType, STRING_TYPE),
-                false
+                    Opcodes.INVOKESTATIC, BTRACERT_INTERNAL,
+                    methodName, isPut ? Type.getMethodDescriptor(Type.VOID_TYPE, tType, STRING_TYPE) :
+                    Type.getMethodDescriptor(tType, STRING_TYPE),
+                    false
             ));
             l.insert(fin, toInsert);
         }
@@ -828,8 +831,8 @@ final class Preprocessor {
     private AbstractInsnNode updateInjectedUsage(ClassNode cn, FieldInsnNode fin, InsnList l, LocalVarGenerator lvg) {
         if (serviceLocals.containsKey(fin.name)) {
             VarInsnNode load = new VarInsnNode(
-                Type.getType(fin.desc).getOpcode(Opcodes.ILOAD),
-                serviceLocals.get(fin.name)
+                    Type.getType(fin.desc).getOpcode(Opcodes.ILOAD),
+                    serviceLocals.get(fin.name)
             );
             l.insert(fin, load);
             l.remove(fin);
@@ -844,14 +847,14 @@ final class Preprocessor {
         if (an.values != null) {
             Iterator<Object> iter = an.values.iterator();
             while (iter.hasNext()) {
-                String name = (String)iter.next();
+                String name = (String) iter.next();
                 Object val = iter.next();
                 switch (name) {
                     case "value":
-                        svcType = (String)((String[])val)[1];
+                        svcType = (String) ((String[]) val)[1];
                         break;
                     case "factoryMethod":
-                        fctryMethod = (String)val;
+                        fctryMethod = (String) val;
                         break;
                 }
             }
@@ -863,13 +866,13 @@ final class Preprocessor {
                 toInsert.add(new InsnNode(Opcodes.DUP));
                 toInsert.add(new InsnNode(Opcodes.DUP));
                 toInsert.add(new MethodInsnNode(
-                    Opcodes.INVOKESPECIAL, implType.getInternalName(),
-                    "<init>", "()V", false
+                        Opcodes.INVOKESPECIAL, implType.getInternalName(),
+                        "<init>", "()V", false
                 ));
             } else {
                 toInsert.add(new MethodInsnNode(
-                    Opcodes.INVOKESTATIC, implType.getInternalName(), fctryMethod,
-                    Type.getMethodDescriptor(implType), false
+                        Opcodes.INVOKESTATIC, implType.getInternalName(), fctryMethod,
+                        Type.getMethodDescriptor(implType), false
                 ));
                 toInsert.add(new InsnNode(Opcodes.DUP));
             }
@@ -880,14 +883,14 @@ final class Preprocessor {
                 toInsert.add(new InsnNode(Opcodes.DUP));
                 toInsert.add(getRuntime(cn));
                 toInsert.add(new MethodInsnNode(
-                    Opcodes.INVOKESPECIAL, implType.getInternalName(),
-                    "<init>", RT_SERVICE_CTR_DESC, false
+                        Opcodes.INVOKESPECIAL, implType.getInternalName(),
+                        "<init>", RT_SERVICE_CTR_DESC, false
                 ));
             } else {
                 toInsert.add(getRuntime(cn));
                 toInsert.add(new MethodInsnNode(
-                    Opcodes.INVOKESTATIC, implType.getInternalName(), fctryMethod,
-                    Type.getMethodDescriptor(implType, BTRACERT_TYPE), false
+                        Opcodes.INVOKESTATIC, implType.getInternalName(), fctryMethod,
+                        Type.getMethodDescriptor(implType, BTRACERT_TYPE), false
                 ));
                 toInsert.add(new InsnNode(Opcodes.DUP));
             }
@@ -918,13 +921,13 @@ final class Preprocessor {
                             }
                             // ---
 
-                            String sType = ((Type)((LdcInsnNode)ldcType).cst).getInternalName();
+                            String sType = ((Type) ((LdcInsnNode) ldcType).cst).getInternalName();
                             InsnList toInsert = new InsnList();
                             toInsert.add(new TypeInsnNode(Opcodes.NEW, sType));
                             toInsert.add(new InsnNode(Opcodes.DUP));
                             toInsert.add(new MethodInsnNode(
-                                Opcodes.INVOKESPECIAL, sType,
-                                "<init>", "()V", false
+                                    Opcodes.INVOKESPECIAL, sType,
+                                    "<init>", "()V", false
                             ));
                             l.insertBefore(next, toInsert);
                         }
@@ -932,7 +935,7 @@ final class Preprocessor {
                         AbstractInsnNode ldcType = min.getPrevious();
                         AbstractInsnNode ldcFMethod = ldcType.getPrevious();
                         if (ldcType.getType() == AbstractInsnNode.LDC_INSN &&
-                            ldcFMethod.getType() == AbstractInsnNode.LDC_INSN) {
+                                ldcFMethod.getType() == AbstractInsnNode.LDC_INSN) {
                             // remove the original sequence
                             l.remove(min);
                             l.remove(ldcType);
@@ -943,16 +946,16 @@ final class Preprocessor {
                             }
                             // ---
 
-                            String sType = ((Type)((LdcInsnNode)ldcType).cst).getInternalName();
-                            String fMethod = (String)((LdcInsnNode)ldcFMethod).cst;
+                            String sType = ((Type) ((LdcInsnNode) ldcType).cst).getInternalName();
+                            String fMethod = (String) ((LdcInsnNode) ldcFMethod).cst;
 
                             InsnList toInsert = new InsnList();
                             toInsert.add(new TypeInsnNode(Opcodes.NEW, sType));
                             toInsert.add(new InsnNode(Opcodes.DUP));
                             toInsert.add(new LdcInsnNode(fMethod));
                             toInsert.add(new MethodInsnNode(
-                                Opcodes.INVOKESPECIAL, sType,
-                                "<init>", SERVICE_CTR_DESC, false
+                                    Opcodes.INVOKESPECIAL, sType,
+                                    "<init>", SERVICE_CTR_DESC, false
                             ));
                             l.insertBefore(next, toInsert);
                         }
@@ -973,14 +976,14 @@ final class Preprocessor {
                             }
                             // ---
 
-                            String sType = ((Type)((LdcInsnNode)ldcType).cst).getInternalName();
+                            String sType = ((Type) ((LdcInsnNode) ldcType).cst).getInternalName();
                             InsnList toInsert = new InsnList();
                             toInsert.add(new TypeInsnNode(Opcodes.NEW, sType));
                             toInsert.add(new InsnNode(Opcodes.DUP));
                             toInsert.add(getRuntime(cn));
                             toInsert.add(new MethodInsnNode(
-                                Opcodes.INVOKESPECIAL, sType,
-                                "<init>", RT_SERVICE_CTR_DESC, false
+                                    Opcodes.INVOKESPECIAL, sType,
+                                    "<init>", RT_SERVICE_CTR_DESC, false
                             ));
                             l.insertBefore(next, toInsert);
                         }
@@ -1001,9 +1004,9 @@ final class Preprocessor {
             if (mn.visibleParameterAnnotations != null) {
                 int offset = 0;
                 Type[] params = Type.getArgumentTypes(mn.desc);
-                for(int i = 0; i < mn.visibleParameterAnnotations.length; i++) {
+                for (int i = 0; i < mn.visibleParameterAnnotations.length; i++) {
                     if (mn.visibleParameterAnnotations[i] != null) {
-                        for(AnnotationNode an : (List<AnnotationNode>)mn.visibleParameterAnnotations[i]) {
+                        for (AnnotationNode an : (List<AnnotationNode>) mn.visibleParameterAnnotations[i]) {
                             if (an.desc.equals(Type.getDescriptor(Return.class))) {
                                 retIndex = offset;
                             }
@@ -1054,6 +1057,7 @@ final class Preprocessor {
     // For each @Export field, we create a perf counter
     // with the name "btrace.<class name>.<field name>"
     private static final String BTRACE_COUNTER_PREFIX = "btrace.";
+
     private String perfCounterName(ClassNode cn, String fieldName) {
         return BTRACE_COUNTER_PREFIX + Type.getObjectType(cn.name).getInternalName() + "." + fieldName;
     }
@@ -1073,11 +1077,11 @@ final class Preprocessor {
 
     private MethodInsnNode boxNode(String unboxedDesc, String boxedDesc) {
         return new MethodInsnNode(
-            Opcodes.INVOKESTATIC,
-            boxedDesc.substring(1, boxedDesc.length() - 1),
-            "valueOf",
-            "(" + unboxedDesc + ")" + boxedDesc,
-            false
+                Opcodes.INVOKESTATIC,
+                boxedDesc.substring(1, boxedDesc.length() - 1),
+                "valueOf",
+                "(" + unboxedDesc + ")" + boxedDesc,
+                false
         );
     }
 
@@ -1116,11 +1120,11 @@ final class Preprocessor {
 
         if (mName != null) {
             return new MethodInsnNode(
-                Opcodes.INVOKEVIRTUAL,
-                boxedInternal,
-                mName,
-                "()" + unboxedDesc,
-                false
+                    Opcodes.INVOKEVIRTUAL,
+                    boxedInternal,
+                    mName,
+                    "()" + unboxedDesc,
+                    false
             );
         }
         return null;
@@ -1128,11 +1132,11 @@ final class Preprocessor {
 
     private int getReturnMethodParameter(MethodNode mn) {
         if (mn.visibleParameterAnnotations != null) {
-            for(int i=0;i<mn.visibleParameterAnnotations.length;i++) {
-                List paList = (List)mn.visibleParameterAnnotations[i];
+            for (int i = 0; i < mn.visibleParameterAnnotations.length; i++) {
+                List paList = (List) mn.visibleParameterAnnotations[i];
                 if (paList != null) {
-                    for(Object anObj : paList) {
-                        AnnotationNode an = (AnnotationNode)anObj;
+                    for (Object anObj : paList) {
+                        AnnotationNode an = (AnnotationNode) anObj;
                         if (an.desc.equals(RETURN_DESC)) {
                             return i;
                         }
