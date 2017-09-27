@@ -31,23 +31,17 @@ import com.sun.btrace.comm.RetransformClassNotification;
 import com.sun.btrace.org.objectweb.asm.*;
 import com.sun.btrace.org.objectweb.asm.tree.ClassNode;
 import com.sun.btrace.org.objectweb.asm.tree.MethodNode;
+
 import static com.sun.btrace.runtime.Constants.INJECTED_DESC;
+
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
-import java.util.Collections;
-import java.util.Iterator;
+
 import static com.sun.btrace.runtime.ClassFilter.isSubTypeOf;
 
 /**
- *
  * @author Jaroslav Bachorik
  */
 public final class BTraceProbe extends ClassNode {
@@ -78,6 +72,8 @@ public final class BTraceProbe extends ClassNode {
         this.injectedFields = new HashSet<>();
         this.idmap = new HashMap<>();
         this.graph = new CallGraph();
+
+//        System.out.println("FART FACE:" + factory.patterns.size());
     }
 
     BTraceProbe(BTraceProbeFactory factory, byte[] code) {
@@ -105,7 +101,7 @@ public final class BTraceProbe extends ClassNode {
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc, String sig, String[] exceptions) {
         super.visitMethod(access, name, desc, sig, exceptions);
-        MethodNode mn = (MethodNode)methods.remove(methods.size() - 1);
+        MethodNode mn = (MethodNode) methods.remove(methods.size() - 1);
         BTraceMethodNode bmn = new BTraceMethodNode(mn, this);
         methods.add(bmn);
         idmap.put(CallGraph.methodId(name, desc), bmn);
@@ -113,7 +109,7 @@ public final class BTraceProbe extends ClassNode {
     }
 
     @Override
-    public FieldVisitor	visitField(int access, final String name, String desc, String signature, Object value) {
+    public FieldVisitor visitField(int access, final String name, String desc, String signature, Object value) {
         return new FieldVisitor(Opcodes.ASM5, super.visitField(access, name, desc, signature, value)) {
             @Override
             public AnnotationVisitor visitAnnotation(String type, boolean aVisible) {
@@ -130,27 +126,41 @@ public final class BTraceProbe extends ClassNode {
         final String targetName = cr.getJavaClassName();
 
         outer:
-        for(OnMethod om : onMethods) {
+        for (OnMethod om : onMethods) {
             String probeClass = om.getClazz();
             if (probeClass == null && probeClass.isEmpty()) continue;
+//            System.out.println("Checking OUT " + targetName);
 
             if (probeClass.equals(targetName)) {
                 applicables.add(om);
                 continue;
             }
+
             // Check regex match
             if (om.isClassRegexMatcher() && !om.isClassAnnotationMatcher()) {
-                Pattern p = Pattern.compile(probeClass);
-                if (p.matcher(targetName).matches()) {
-                    applicables.add(om);
-                    continue;
+//                System.out.println("It is regex... " + this.factory);
+//                System.out.println(this.factory.patterns.size());
+//       Pattern p = Pattern.compile(probeClass);
+//                if (p.matcher(targetName).matches()) {
+                if (targetName.length() > 15) {
+                    if (this.factory.patterns.containsKey(targetName.substring(0, 16))) {
+//                        System.out.println("Monitoring " + targetName);
+                        applicables.add(om);
+                        continue;
+                    }
+                } else {
+                    if (this.factory.patterns.containsKey(targetName)) {
+//                        System.out.println("Monitoring " + targetName);
+                        applicables.add(om);
+                        continue;
+                    }
                 }
             }
             if (om.isClassAnnotationMatcher()) {
                 Collection<String> annoTypes = cr.getAnnotationTypes();
                 if (om.isClassRegexMatcher()) {
                     Pattern p = Pattern.compile(probeClass);
-                    for(String annoType : annoTypes) {
+                    for (String annoType : annoTypes) {
                         if (p.matcher(annoType).matches()) {
                             applicables.add(om);
                             continue outer;
@@ -236,7 +246,7 @@ public final class BTraceProbe extends ClassNode {
                         if (bmn.isBcpRequired()) {
                             return super.visitMethod(access, name, desc, sig, exceptions);
                         }
-                        for(BTraceMethodNode c : bmn.getCallers()) {
+                        for (BTraceMethodNode c : bmn.getCallers()) {
                             if (c.isBcpRequired()) {
                                 return super.visitMethod(access, name, desc, sig, exceptions);
                             }
@@ -253,6 +263,7 @@ public final class BTraceProbe extends ClassNode {
 
     /**
      * Collects all the methods reachable from this particular method
+     *
      * @param name the method name
      * @param desc the method descriptor
      * @return the callee reachability closure
@@ -265,6 +276,7 @@ public final class BTraceProbe extends ClassNode {
 
     /**
      * Collects all the methods from which this particular method is reachable
+     *
      * @param name the method name
      * @param desc the method descriptor
      * @return the caller reachability closure
@@ -347,25 +359,25 @@ public final class BTraceProbe extends ClassNode {
             if (debug.isDebug()) debug.debug("found probe mappings for " + op.getName());
             Collection<OnMethod> omColl = foundProbe.getOnMethods();
             for (OnMethod om : omColl) {
-                 // copy the info in a new OnMethod so that
-                 // we can set target method name and descriptor
-                 // Note that the probe descriptor cache is used
-                 // across BTrace sessions. So, we should not update
-                 // cached OnProbes (and their OnMethods).
-                 OnMethod omn = new OnMethod(op.getMethodNode());
-                 omn.copyFrom(om);
-                 omn.setTargetName(op.getTargetName());
-                 omn.setTargetDescriptor(op.getTargetDescriptor());
-                 omn.setClassNameParameter(op.getClassNameParameter());
-                 omn.setMethodParameter(op.getMethodParameter());
-                 omn.setDurationParameter(op.getDurationParameter());
-                 omn.setMethodFqn(op.isMethodFqn());
-                 omn.setReturnParameter(op.getReturnParameter());
-                 omn.setSelfParameter(op.getSelfParameter());
-                 omn.setTargetInstanceParameter(op.getTargetInstanceParameter());
-                 omn.setTargetMethodOrFieldFqn(op.isTargetMethodOrFieldFqn());
-                 omn.setTargetMethodOrFieldParameter(op.getTargetMethodOrFieldParameter());
-                 addOnMethod(omn);
+                // copy the info in a new OnMethod so that
+                // we can set target method name and descriptor
+                // Note that the probe descriptor cache is used
+                // across BTrace sessions. So, we should not update
+                // cached OnProbes (and their OnMethods).
+                OnMethod omn = new OnMethod(op.getMethodNode());
+                omn.copyFrom(om);
+                omn.setTargetName(op.getTargetName());
+                omn.setTargetDescriptor(op.getTargetDescriptor());
+                omn.setClassNameParameter(op.getClassNameParameter());
+                omn.setMethodParameter(op.getMethodParameter());
+                omn.setDurationParameter(op.getDurationParameter());
+                omn.setMethodFqn(op.isMethodFqn());
+                omn.setReturnParameter(op.getReturnParameter());
+                omn.setSelfParameter(op.getSelfParameter());
+                omn.setTargetInstanceParameter(op.getTargetInstanceParameter());
+                omn.setTargetMethodOrFieldFqn(op.isTargetMethodOrFieldFqn());
+                omn.setTargetMethodOrFieldParameter(op.getTargetMethodOrFieldParameter());
+                addOnMethod(omn);
             }
         }
     }
@@ -415,7 +427,7 @@ public final class BTraceProbe extends ClassNode {
 
     private Set<BTraceMethodNode> fromIdSet(Set<String> ids) {
         Set<BTraceMethodNode> methods = new HashSet<>();
-        for(String id : ids) {
+        for (String id : ids) {
             BTraceMethodNode mn = idmap.get(id);
             if (mn != null) {
                 methods.add(mn);
@@ -444,7 +456,7 @@ public final class BTraceProbe extends ClassNode {
         } finally {
             // leave BTraceRuntime enter state as it was before
             // we started executing this method.
-            if (! enteredHere) BTraceRuntime.enter();
+            if (!enteredHere) BTraceRuntime.enter();
         }
     }
 

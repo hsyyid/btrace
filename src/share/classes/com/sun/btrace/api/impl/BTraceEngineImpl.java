@@ -184,7 +184,7 @@ public class BTraceEngineImpl extends BTraceEngine {
         LOGGER.finest("Starting BTrace task");
 
         boolean result = doStart(task);
-        LOGGER.log(Level.FINEST, "BTrace task {0}", result ? "started successfuly" : "failed");
+        LOGGER.log(Level.FINEST, "BTrace task {0}", result ? "started successfully" : "failed");
         if (result) {
             fireOnTaskStart(task);
         }

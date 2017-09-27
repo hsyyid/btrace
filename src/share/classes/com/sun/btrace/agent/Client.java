@@ -56,17 +56,19 @@ import java.lang.annotation.Annotation;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
 import java.lang.management.ManagementFactory;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.DateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import sun.reflect.annotation.AnnotationParser;
 import sun.reflect.annotation.AnnotationType;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 
 /**
@@ -86,6 +88,7 @@ abstract class Client implements CommandListener {
     private BTraceProbe probe;
 
     private Timer flusher;
+    private Gson gson = new GsonBuilder().create();
     protected volatile PrintWriter out;
 
     protected final SharedSettings settings;
@@ -394,7 +397,27 @@ abstract class Client implements CommandListener {
 
     // Internals only below this point
     private BTraceProbe load(byte[] buf) {
-        BTraceProbeFactory f = new BTraceProbeFactory(settings);
+        String json = "";
+
+        try {
+            json = readFile("plugins.json", StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        Map<String, Object> sourceClassPatterns = new HashMap<>();
+
+        if (!json.isEmpty()) {
+            new ArrayList<String>(Arrays.asList(gson.fromJson(json, String[].class))).forEach(x -> sourceClassPatterns.put(x, null));
+//            System.out.println("MONITORING CLASSES...");
+//            sourceClassPatterns.forEach((x,y) -> System.out.println(x));
+        } else {
+//            System.out.println("JSON WAS EMPTY!");
+        }
+
+//        System.out.println("SENT MAP of SIZE " + sourceClassPatterns.size());
+
+        BTraceProbeFactory f = new BTraceProbeFactory(settings, sourceClassPatterns);
         debugPrint("loading BTrace class");
         BTraceProbe cn = f.createProbe(buf);
 
@@ -471,5 +494,11 @@ abstract class Client implements CommandListener {
         }
 
         return "-1";
+    }
+
+    static String readFile(String path, Charset encoding)
+            throws IOException {
+        byte[] encoded = Files.readAllBytes(Paths.get(path));
+        return new String(encoded, encoding);
     }
 }

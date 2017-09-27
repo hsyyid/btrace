@@ -42,6 +42,7 @@ import sun.misc.Unsafe;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.BeforeClass;
 
@@ -72,7 +73,7 @@ public abstract class InstrumentorTestBase {
 
     private ClassLoader cl;
     private final SharedSettings settings = SharedSettings.GLOBAL;
-    private final BTraceProbeFactory factory = new BTraceProbeFactory(settings);
+    private final BTraceProbeFactory factory = new BTraceProbeFactory(settings, new WeakHashMap<String, Object>());
 
     protected final void enableUniqueClientClassNameCheck() throws Exception {
         uccn.set(null, true);
@@ -187,7 +188,7 @@ public abstract class InstrumentorTestBase {
         settings.setTrusted(unsafe);
         BTraceClassReader cr = InstrumentUtils.newClassReader(cl, originalBC);
         BTraceClassWriter cw = InstrumentUtils.newClassWriter(cr);
-        System.out.println("Got stuffs: " +cw.toByteArray());
+//        System.out.println("Got stuffs: " +cw.toByteArray());
 
         BTraceProbe btrace = loadTrace(traceName, unsafe); // Load the trace ORIGINAL version...
 

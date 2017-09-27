@@ -63,7 +63,7 @@ public class ClassFilter {
     private Gson gson = new GsonBuilder().create();
 
     private Set<String> sourceClasses;
-    private WeakHashMap<String, Object> sourceClassPatterns;
+    private Map<String, Object> sourceClassPatterns;
     private String[] annotationClasses;
     private Pattern[] annotationClassPatterns;
     // +foo type class pattern in any @OnMethod.
@@ -125,22 +125,29 @@ public class ClassFilter {
         }
 
         String className = target.getName();
-        System.out.println("Class NAME " + className);
+//        System.out.println("Class NAME " + className);
 
         if (isNameMatching(className)) {
-            System.out.println("RETURNED TRUE");
+//            System.out.println("RETURNED TRUE");
             return true;
         }
 
 
-        if (sourceClassPatterns.containsKey(className)) {
-            System.out.println("RETURNED TRUE");
-            return true;
+        if (className.length() > 15) {
+            if (sourceClassPatterns.containsKey(className.substring(0, 16))) {
+//                System.out.println("RETURNED TRUE");
+                return true;
+            }
+        } else {
+            if (sourceClassPatterns.containsKey(className)) {
+//                System.out.println("RETURNED TRUE");
+                return true;
+            }
         }
 
         for (String st : superTypes) {
             if (isSubTypeOf(target, st)) {
-                System.out.println("RETURNED TRUE");
+//                System.out.println("RETURNED TRUE");
                 return true;
             }
         }
@@ -154,7 +161,7 @@ public class ClassFilter {
         for (String name : annotationClasses) {
             for (String annoType : annoTypes) {
                 if (name.equals(annoType)) {
-                    System.out.println("RETURNED TRUE");
+//                    System.out.println("RETURNED TRUE");
                     return true;
                 }
             }
@@ -163,7 +170,7 @@ public class ClassFilter {
         for (Pattern pat : annotationClassPatterns) {
             for (String annoType : annoTypes) {
                 if (pat.matcher(annoType).matches()) {
-                    System.out.println("RETURNED TRUE");
+//                    System.out.println("RETURNED TRUE");
                     return true;
                 }
             }
@@ -225,8 +232,14 @@ public class ClassFilter {
             return true;
         }
 
-        if (sourceClassPatterns.containsKey(clzName)) {
-            return true;
+        if (clzName.length() > 15) {
+            if (sourceClassPatterns.containsKey(clzName.substring(0, 16))) {
+                return true;
+            }
+        } else {
+            if (sourceClassPatterns.containsKey(clzName)) {
+                return true;
+            }
         }
 
         return false;
@@ -351,16 +364,16 @@ public class ClassFilter {
 
 
         for (Pattern pat : patSrcList) {
-            System.out.println(pat.toString());
+//            System.out.println(pat.toString());
         }
 
         if (!json.isEmpty()) {
-            sourceClassPatterns = new WeakHashMap<>();
+            sourceClassPatterns = new HashMap<>();
             new ArrayList<String>(Arrays.asList(gson.fromJson(json, String[].class))).forEach(x -> sourceClassPatterns.put(x, null));
-            System.out.println("MONITORING CLASSES...");
-            sourceClassPatterns.forEach((x,y) -> System.out.println(x));
+//            System.out.println("MONITORING CLASSES...");
+//            sourceClassPatterns.forEach((x, y) -> System.out.println(x));
         } else {
-            System.out.println("JSON WAS EMPTY!");
+//            System.out.println("JSON WAS EMPTY!");
         }
 
 //        try {

@@ -28,6 +28,8 @@ import com.sun.btrace.DebugSupport;
 import com.sun.btrace.SharedSettings;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /**
  * A factory class for {@linkplain BTraceProbe} instances
@@ -36,10 +38,14 @@ import java.io.InputStream;
 public final class BTraceProbeFactory {
     private final SharedSettings settings;
     private final DebugSupport debug;
+    public final Map<String, Object> patterns;
 
-    public BTraceProbeFactory(SharedSettings settings) {
+    public BTraceProbeFactory(SharedSettings settings, Map<String, Object> patterns) {
         this.settings = settings;
         this.debug = new DebugSupport(settings);
+        this.patterns = patterns;
+//        System.out.println("=== Patterns === " + patterns.size() + " " + this);
+//        patterns.forEach((x,y) -> System.out.println(x));
     }
 
     SharedSettings getSettings() {

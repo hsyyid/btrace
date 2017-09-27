@@ -28,7 +28,10 @@ final public class PortLocatorImpl implements PortLocator {
             String portStr = vm.getSystemProperties().getProperty(PORT_PROPERTY);
             return portStr != null ? Integer.parseInt(portStr) : findFreePort();
         } catch (AttachNotSupportedException ex) {
-            Logger.getLogger(PortLocatorImpl.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PortLocatorImpl.class.getName())
+                    .log(Level.SEVERE, ex.getMessage());
+            Logger.getLogger(PortLocatorImpl.class.getName())
+                    .log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
             Logger.getLogger(PortLocatorImpl.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
